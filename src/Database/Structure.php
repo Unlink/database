@@ -40,16 +40,14 @@ class Structure implements IStructure
 	public function getTables()
 	{
 		$this->needStructure();
-		return $this->structure['tables'];
-	}
-
-
-	public function getColumns($table)
-	{
-		$this->needStructure();
-		$table = $this->resolveFQTableName($table);
-
-		return $this->structure['columns'][$table];
+		$tables = [];
+		foreach ($this->structure['tables'] as $name => $meta) {
+			$tables[] = [
+				'name' => isset($meta['name']) ? $meta['name'] : $name,
+				'view' => isset($meta['view']) ? $meta['view'] : FALSE
+			];
+		}
+		return $tables;
 	}
 
 
@@ -58,11 +56,11 @@ class Structure implements IStructure
 		$this->needStructure();
 		$table = $this->resolveFQTableName($table);
 
-		if (!isset($this->structure['primary'][$table])) {
+		if (!isset($this->structure['tables'][$table]['primary'])) {
 			return NULL;
 		}
 
-		return $this->structure['primary'][$table];
+		return $this->structure['tables'][$table]['primary'];
 	}
 
 
@@ -80,13 +78,13 @@ class Structure implements IStructure
 			return NULL;
 		}
 
-		foreach ($this->structure['columns'][$table] as $columnMeta) {
-			if ($columnMeta['name'] === $primary) {
-				return isset($columnMeta['vendor']['sequence']) ? $columnMeta['vendor']['sequence'] : NULL;
-			}
+		dump($this->structure['tables'][$table]);
+
+		if (!isset($this->structure['tables'][$table]['sequence'])) {
+			return NULL;
 		}
 
-		return NULL;
+		return $this->structure['tables'][$table]['sequence']['name'];
 	}
 
 
@@ -166,9 +164,8 @@ class Structure implements IStructure
 		$driver = $this->connection->getSupplementalDriver();
 
 		$structure = [];
-		$structure['tables'] = $driver->getTables();
 
-		foreach ($structure['tables'] as $tablePair) {
+		foreach ($driver->getTables() as $tablePair) {
 			if (isset($tablePair['fullName'])) {
 				$table = $tablePair['fullName'];
 				$structure['aliases'][strtolower($tablePair['name'])] = strtolower($table);
@@ -176,11 +173,18 @@ class Structure implements IStructure
 				$table = $tablePair['name'];
 			}
 
-			$structure['columns'][strtolower($table)] = $columns = $driver->getColumns($table);
+			$columns = $driver->getColumns($table);
 
 			if (!$tablePair['view']) {
-				$structure['primary'][strtolower($table)] = $this->analyzePrimaryKey($columns);
+				$structure['tables'][strtolower($table)] = $this->analyzeColumns($columns);
 				$this->analyzeForeignKeys($structure, $table);
+			}
+			else {
+				$structure['tables'][strtolower($table)]['view'] = TRUE;
+			}
+
+			if (strtolower($table) !== $table) {
+				$structure['tables'][strtolower($table)]['name'] = $table;
 			}
 		}
 
@@ -198,22 +202,31 @@ class Structure implements IStructure
 	}
 
 
-	protected function analyzePrimaryKey(array $columns)
+	protected function analyzeColumns(array $columns)
 	{
-		$primary = [];
+		$tableInfo = [];
 		foreach ($columns as $column) {
 			if ($column['primary']) {
-				$primary[] = $column['name'];
+				$tableInfo['primary'][] = $column['name'];
+			}
+			if (!isset($column['autoincrement'])) {
+				dump($column);
+			}
+			if ($column['autoincrement']) {
+				$tableInfo['autoincrement'] = $column['name'];
+			}
+			if (isset($column['vendor']['sequence'])) {
+				$tableInfo['sequence'] = [
+					'column' => $column['name'],
+					'name' => $column['vendor']['sequence']
+				];
 			}
 		}
 
-		if (count($primary) === 0) {
-			return NULL;
-		} elseif (count($primary) === 1) {
-			return reset($primary);
-		} else {
-			return $primary;
+		if (isset($tableInfo['primary']) && count($tableInfo['primary']) === 1) {
+			$tableInfo['primary'] = reset($tableInfo['primary']);
 		}
+		return $tableInfo;
 	}
 
 
@@ -236,7 +249,7 @@ class Structure implements IStructure
 	protected function resolveFQTableName($table)
 	{
 		$name = strtolower($table);
-		if (isset($this->structure['columns'][$name])) {
+		if (isset($this->structure['tables'][$name])) {
 			return $name;
 		}
 

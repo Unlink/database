@@ -32,13 +32,6 @@ interface IStructure
 	function getTables();
 
 	/**
-	 * Returns table columns list.
-	 * @param  string
-	 * @return array
-	 */
-	function getColumns($table);
-
-	/**
 	 * Returns table primary key.
 	 * @param  string
 	 * @return string|array|NULL

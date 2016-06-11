@@ -55,12 +55,12 @@ class StructureSchemasTestCase extends TestCase
 			['name' => 'books', 'view' => FALSE, 'fullName' => 'books.books'],
 		]);
 		$this->driver->shouldReceive('getColumns')->with('authors.authors')->once()->andReturn([
-			['name' => 'id', 'primary' => TRUE, 'vendor' => ['sequence' => '"authors"."authors_id_seq"']],
-			['name' => 'name', 'primary' => FALSE, 'vendor' => []],
+			['name' => 'id', 'primary' => TRUE, 'autoincrement' => TRUE, 'vendor' => ['sequence' => '"authors"."authors_id_seq"']],
+			['name' => 'name', 'primary' => FALSE, 'autoincrement' => FALSE, 'vendor' => []],
 		]);
 		$this->driver->shouldReceive('getColumns')->with('books.books')->once()->andReturn([
-			['name' => 'id', 'primary' => TRUE, 'vendor' => ['sequence' => '"books"."books_id_seq"']],
-			['name' => 'title', 'primary' => FALSE, 'vendor' => []],
+			['name' => 'id', 'primary' => TRUE, 'autoincrement' => TRUE, 'vendor' => ['sequence' => '"books"."books_id_seq"']],
+			['name' => 'title', 'primary' => FALSE, 'autoincrement' => FALSE, 'vendor' => []],
 		]);
 
 		$this->connection->shouldReceive('getSupplementalDriver')->times(2)->andReturn($this->driver);
